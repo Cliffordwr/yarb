@@ -123,29 +123,33 @@ class dingtalkBot:
         return text_list
 
     async def send(self, text_list: list):
+        if not text_list:
+            print('No feeds to send.')
+            return
+            
         rates = [Rate(20, Duration.MINUTE)] # 频率限制，20条/分钟
         bucket = InMemoryBucket(rates)
-        limiter = Limiter(bucket, max_delay=Duration.MINUTE.value)
-
+        limiter = Limiter(bucket, max_delay=120000)
+        markdown_text = '## **安全资讯**\n'
         for (feed, text) in text_list:
             limiter.try_acquire('identity')
+            markdown_text += f'## {feed}\n{text}\n\n'    
+        
+        markdown_text += '<!-- Powered by Yarb. -->'
+        print(f'{len(markdown_text)} {markdown_text[:50]}...{markdown_text[-50:]}')
+        
+        data = {"msgtype": "markdown", "markdown": {
+            "title": "安全日报", "text": markdown_text}}
+        headers = {'Content-Type': 'application/json'}
+        url = f'https://oapi.dingtalk.com/robot/send?access_token={self.key}'
+        r = requests.post(url=url, headers=headers,
+                            data=json.dumps(data), proxies=self.proxy)
 
-            text = f'## {feed}\n{text}'
-            text += f"\n\n <!-- Powered by Yarb. -->"
-            print(f'{len(text)} {text[:50]}...{text[-50:]}')
-
-            data = {"msgtype": "markdown", "markdown": {
-                "title": feed, "text": text}}
-            headers = {'Content-Type': 'application/json'}
-            url = f'https://oapi.dingtalk.com/robot/send?access_token={self.key}'
-            r = requests.post(url=url, headers=headers,
-                                data=json.dumps(data), proxies=self.proxy)
-
-            if r.status_code == 200:
-                console.print('[+] dingtalkBot 发送成功', style='bold green')
-            else:
-                console.print('[-] dingtalkBot 发送失败', style='bold red')
-                print(r.text)
+        if r.status_code == 200:
+            console.print('[+] dingtalkBot 发送成功', style='bold green')
+        else:
+            console.print('[-] dingtalkBot 发送失败', style='bold red')
+            print(r.text)
 
 
 class qqBot:
